@@ -1,0 +1,72 @@
+// excerpts from http://code.google.com/p/muduo/
+//
+// Use of this source code is governed by a BSD-style license
+// that can be found in the License file.
+//
+// Author: Shuo Chen (chenshuo at chenshuo dot com)
+
+#ifndef _TIMERQUEUE_H_
+#define _TIMERQUEUE_H_
+
+#include <set>
+#include <vector>
+
+
+
+#include "Timestamp.h"
+#include "Mutex.h"
+#include "Callbacks.h"
+#include "Channel.h"
+
+namespace wwj
+{
+
+class EventLoop;
+class Timer;
+class TimerId;
+
+
+class TimerQueue
+{
+ public:
+  TimerQueue(EventLoop* loop);
+  ~TimerQueue();
+
+  TimerId addTimer(const TimerCallback& cb,
+                   Timestamp when,
+                   double interval);
+
+  void cancel(TimerId timerId);
+
+ private:
+
+
+  typedef std::pair<Timestamp, Timer*> Entry;
+  typedef std::set<Entry> TimerList;
+  typedef std::pair<Timer*, int64_t> ActiveTimer;
+  typedef std::set<ActiveTimer> ActiveTimerSet;
+
+  void addTimerInLoop(Timer* timer);
+  void cancelInLoop(TimerId timerId);
+
+  void handleRead();
+
+  std::vector<Entry> getExpired(Timestamp now);
+  void reset(const std::vector<Entry>& expired, Timestamp now);
+
+  bool insert(Timer* timer);
+
+  EventLoop* loop_;
+  const int timerfd_;
+  Channel timerfdChannel_;
+
+  TimerList timers_;
+
+
+  bool callingExpiredTimers_; 
+  ActiveTimerSet activeTimers_;
+  ActiveTimerSet cancelingTimers_;
+};
+
+}
+#endif  
